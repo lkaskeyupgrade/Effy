@@ -1,0 +1,44 @@
+--need to use bi_loan_legacy to get the uplift_application_id to match to hive ,etastore to get the fds last4 
+SELECT DISTINCT
+    l.partner_grouping_legacy AS `Partner Group`
+    ,date_format(l.date_etz, 'MMMM') AS `Month Of Loan`
+    ,l.timestamp_etz AS `Timestamp`
+    ,l.date_etz AS `Loan Date`
+    ,l.bil_loan_id AS `Upgrade Loan ID`
+    ,l.uplift_loan_id AS `Old Loan ID`
+    ,l.partner_confirmation AS `Partner Confirmation`
+    ,a.account_id AS `Account ID`
+    ,l.is_refund AS `Refund Flag`
+    ,a.first_name AS `First Name`
+    ,a.last_name AS `Last Name`
+    ,l.cruise_line AS `Location Group`
+    ,l.ship_name AS `Location`
+    ,l.partner_short AS `Partner Short`
+    ,l.agent_email AS `Agent Email`
+    ,CASE WHEN l.apr = 0 THEN '0% APR' ELSE 'Interest Bearing' END AS `Product Type`
+    ,l.loan_term AS `Loan Term`
+    ,right(f.card_number, 4) AS `Last 4 of VCC`
+    ,ROUND(l.disbursement_debit_usd, 2) AS Disbursement,
+    ROUND(l.gmv_usd, 2) AS GMV
+    
+FROM commercial_analytics.public.bi_loan_detailed l
+LEFT JOIN commercial_analytics.commercial_analytics.bi_loan_legacy bil
+    ON l.uplift_loan_id = bil.loan_id
+LEFT JOIN hive_metastore.bi_layer.pii_applications a
+    ON bil.application_id = a.application_id
+LEFT JOIN (
+    SELECT DISTINCT application_id, card_number
+    FROM hive_metastore.bi_layer.int_fds_card
+) f
+    ON bil.application_id = f.application_id
+WHERE 1=1
+AND l.partner_grouping_legacy IN ('EFFY Jewelry'
+--                                    , 'Harding Retail'
+--                                    , 'Heinemann Americas'
+--                                    , 'Starboard Cruise Services'
+)
+--and loan_count = 1
+AND l.date_etz >= '2026-01-01'
+AND l.is_refund = true
+--and l.loan_count=1
+;
